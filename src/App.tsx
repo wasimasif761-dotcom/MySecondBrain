@@ -87,7 +87,7 @@ export default function App() {
     // Register Service Worker for offline PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('./sw.js')
         .then((reg) => console.log('[PWA] Service Worker registered:', reg.scope))
         .catch((err) => console.warn('[PWA] Service Worker registration note:', err));
     }
@@ -140,11 +140,18 @@ export default function App() {
       });
     } catch (err: any) {
       console.warn('[Engine Init Handled]', err);
+      setDownloadProgress({
+        status: 'error',
+        progress: 0,
+        text: err?.message || 'WebGPU initialization failed on this device.',
+        error: err?.message || 'WebGPU is restricted in this browser. Tap "Start with Instant Offline Engine" to use the app immediately.',
+      });
     }
   };
 
-  // Fallback to Instant Offline Mode without large WebLLM download
+  // Activate Instant Offline Engine (works on all mobile & desktop browsers)
   const handleUseFallbackMode = () => {
+    setIsModelReady(true);
     setIsOnboardingModalOpen(false);
   };
 

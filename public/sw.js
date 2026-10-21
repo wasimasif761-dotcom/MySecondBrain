@@ -1,19 +1,21 @@
 // MySecondBrain Service Worker - Offline Caching Engine
-const CACHE_NAME = 'secondbrain-cache-v1';
-const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icon.svg',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
-  '/apple-touch-icon.png'
-];
+const CACHE_NAME = 'secondbrain-cache-v2';
 
 self.addEventListener('install', (event) => {
+  const scope = self.registration.scope;
+  const relativeAssets = [
+    scope,
+    new URL('index.html', scope).toString(),
+    new URL('manifest.webmanifest', scope).toString(),
+    new URL('icon.svg', scope).toString(),
+    new URL('pwa-192x192.png', scope).toString(),
+    new URL('pwa-512x512.png', scope).toString(),
+    new URL('apple-touch-icon.png', scope).toString(),
+  ];
+
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(CORE_ASSETS).catch((err) => {
+      return cache.addAll(relativeAssets).catch((err) => {
         console.warn('[SW] Core precache partial warning:', err);
       });
     }).then(() => self.skipWaiting())
@@ -43,7 +45,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Handle CDN assets (HuggingFace, MLC, PDF.js, Wikipedia)
-  // Cache CDN assets to enable genuine offline RAG and inference
   if (
     url.hostname.includes('esm.run') ||
     url.hostname.includes('jsdelivr.net') ||
