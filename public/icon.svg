@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070913"/>
+      <stop offset="50%" stop-color="#0c1124"/>
+      <stop offset="100%" stop-color="#140a2b"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#7e22ce"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  
+  <!-- Outer HUD Rings -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#06b6d4" stroke-opacity="0.2" stroke-width="2" stroke-dasharray="8 6"/>
+  <circle cx="256" cy="256" r="185" fill="none" stroke="#a855f7" stroke-opacity="0.25" stroke-width="1.5"/>
+
+  <!-- Brain Core Silhouette & Synapses -->
+  <g filter="url(#glow)">
+    <!-- Left Hemisphere -->
+    <path d="M 240 140 C 200 130 150 160 140 210 C 130 250 150 280 140 310 C 130 340 160 380 200 380 C 230 380 240 350 240 330 Z" fill="none" stroke="url(#cyanGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Right Hemisphere -->
+    <path d="M 272 140 C 312 130 362 160 372 210 C 382 250 362 280 372 310 C 382 340 352 380 312 380 C 282 380 272 350 272 330 Z" fill="none" stroke="url(#purpleGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Inner Neural Pathways -->
+    <path d="M 190 200 Q 220 230 190 270 T 210 330" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 322 200 Q 292 230 322 270 T 302 330" fill="none" stroke="#c084fc" stroke-width="4" stroke-linecap="round"/>
+    
+    <!-- Central Synapse Bridge -->
+    <line x1="220" y1="210" x2="292" y2="210" stroke="#38bdf8" stroke-width="3" stroke-dasharray="4 3"/>
+    <line x1="200" y1="260" x2="312" y2="260" stroke="#e879f9" stroke-width="3" stroke-dasharray="4 3"/>
+    <line x1="220" y1="310" x2="292" y2="310" stroke="#38bdf8" stroke-width="3" stroke-dasharray="4 3"/>
+
+    <!-- Nodes / Neurons -->
+    <circle cx="190" cy="200" r="7" fill="#38bdf8"/>
+    <circle cx="322" cy="200" r="7" fill="#c084fc"/>
+    <circle cx="190" cy="270" r="6" fill="#06b6d4"/>
+    <circle cx="322" cy="270" r="6" fill="#a855f7"/>
+    <circle cx="210" cy="330" r="7" fill="#22d3ee"/>
+    <circle cx="302" cy="330" r="7" fill="#e879f9"/>
+    
+    <!-- Core Spark -->
+    <circle cx="256" cy="260" r="10" fill="#ffffff" filter="url(#glow)"/>
+    <circle cx="256" cy="260" r="4" fill="#06b6d4"/>
+  </g>
+
+  <!-- Accent Orbit Nodes -->
+  <circle cx="80" cy="256" r="4" fill="#06b6d4"/>
+  <circle cx="432" cy="256" r="4" fill="#a855f7"/>
+  <circle cx="256" cy="70" r="4" fill="#38bdf8"/>
+  <circle cx="256" cy="442" r="4" fill="#c084fc"/>
+</svg>
