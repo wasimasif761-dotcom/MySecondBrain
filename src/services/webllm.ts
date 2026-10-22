@@ -303,60 +303,107 @@ export function generateLocalFallbackResponse(
   relevantMemories: MemoryItem[],
   webSearchResults?: string[]
 ): string {
-  const cleanPrompt = prompt.toLowerCase();
-  
-  // Format based on language
-  const greetings: Record<LanguageId, string> = {
-    urdu: 'السلام علیکم! میں آپ کا پرسنل سیکنڈ برین اسسٹنٹ ہوں۔',
-    'roman-urdu': 'Assalam-o-Alaikum! Main aapka personal Second Brain assistant hoon.',
-    arabic: 'مرحباً بك! أنا مساعدك الشخصي للذاكرة الذكية.',
-    hindi: 'नमस्ते! मैं आपका पर्सनल सेकंड ब्रेन असिस्टेंट हूँ।',
-    english: 'Greetings! I am your personal SecondBrain assistant.',
-  };
+  const clean = prompt.toLowerCase().trim();
 
-  let memoryRecall = '';
-  if (relevantMemories.length > 0) {
+  // Detect Greetings (Salam, Hi, Hello)
+  const isSalam = clean.includes('salam') || clean.includes('سلام') || clean.includes('slaam');
+  const isHowAreYou = clean.includes('kaise') || clean.includes('kese') || clean.includes('haal') || clean.includes('how are you') || clean.includes('کیسے');
+  const isIdentityQuestion = clean.includes('who are you') || clean.includes('who made') || clean.includes('kon ho') || clean.includes('kis ne banaya') || clean.includes('کون ہو') || clean.includes('کس نے بنایا') || clean.includes('creator');
+  const isNameQuestion = clean.includes('mera naam') || clean.includes('my name') || clean.includes('میرا نام');
+
+  // 1. Identity & Creator Question
+  if (isIdentityQuestion) {
     if (language === 'urdu') {
-      memoryRecall = `\n\n📌 آپ کے میموری والٹ سے تلاش کردہ معلومات:\n` +
-        relevantMemories.map((m, i) => `${i + 1}. ${m.text}`).join('\n');
+      return `میرا نام **MySecondBrain** ہے! مجھے **وسیم آصف (Waseem Asif)** نے بطور ایک آف لائن پرسنل اسسٹنٹ تیار کیا ہے۔\n\nمیری خاص بات یہ ہے کہ میں آپ کی دستاویزات، نوٹس اور انٹرنیٹ سے سیکھی گئی معلومات کو آپ کے موبائل کی میموری (IndexedDB) میں مستقل یاد رکھتا ہوں تاکہ آپ کو انٹرنیٹ کے بغیر بھی بوقت ضرورت مدد مل سکے۔\n\nڈویلپر فیڈبیک ای میل: wasimasif761@gmail.com`;
     } else if (language === 'roman-urdu') {
-      memoryRecall = `\n\n📌 Aapke Memory Vault se mili hui maloomat:\n` +
-        relevantMemories.map((m, i) => `${i + 1}. ${m.text}`).join('\n');
+      return `Mera naam **MySecondBrain** hai! Mujhe **Waseem Asif** ne بطور ek offline-first personal AI assistant banaya hai.\n\nMain aapki zaroori baatein, documents aur online seekhi hui maloomat ko aapke device ki IndexedDB memory mein save rakhta hoon taake aapko offline bhi foran jawab mil sake.\n\nAuthor Contact: wasimasif761@gmail.com`;
     } else {
-      memoryRecall = `\n\n📌 Retrieved from your Memory Vault (IndexedDB):\n` +
-        relevantMemories.map((m, i) => `• ${m.text}`).join('\n');
+      return `I am **MySecondBrain**, an Offline-First Personal AI Assistant engineered by **Waseem Asif** (wasimasif761@gmail.com).\n\nI operate 100% privately inside your browser using Vector RAG in IndexedDB, autonomous Wikipedia web research, and multilingual speech. How can I assist you today?`;
     }
   }
 
-  let webSearchSummary = '';
-  if (webSearchResults && webSearchResults.length > 0) {
+  // 2. Greetings (Salam)
+  if (isSalam) {
+    if (language === 'urdu' || clean.includes('سلام') || clean.includes('salam')) {
+      return `وعلیکم السلام ورحمۃ اللہ وبرکاتہ!\n\nخوش آمدید! میں آپ کا سیکنڈ برین اسسٹنٹ ہوں۔ فرمائیے، میں آپ کی کیا مدد کر سکتا ہوں؟ آپ مجھ سے کوئی بھی علمی، سائنسی، تاریخی سوال پوچھ سکتے ہیں، یا اپنی کوئی ذاتی بات یاد رکھنے کے لیے کہہ سکتے ہیں۔`;
+    } else if (language === 'roman-urdu') {
+      return `Walaikum Assalam wa Rahmatullahi wa Barakatuhu!\n\nKhush aamdeed! Main aapka Second Brain assistant hoon. Batayein aaj main aapki kya madad karoon? Aap mujhse koi bhi sawal pooch sakte hain ya koi nayi baat yaad karwa sakte hain.`;
+    } else {
+      return `Walaikum Assalam and warm greetings!\n\nWelcome to your SecondBrain. I am ready to help you recall facts, summarize documents, or research any topic online and store it offline. What is on your mind?`;
+    }
+  }
+
+  // 3. How are you?
+  if (isHowAreYou) {
     if (language === 'urdu') {
-      webSearchSummary = `\n\n🌐 وکی پیڈیا سے لائیو معلومات حاصل کر کے محفوظ کر لی گئیں:\n` +
-        webSearchResults.slice(0, 2).join('\n\n');
+      return `الحمدللہ، میں بالکل ٹھیک اور مستعد ہوں! آپ سنائیے، آپ کی صحت کیسی ہے اور دن کیسا گزر رہا ہے؟`;
+    } else if (language === 'roman-urdu') {
+      return `Alhamdulillah, main bilkul theek aur tayyar hoon! Aap sunayein, aap ki tabiyat kaisi hai aur din kaisa guzar raha hai?`;
     } else {
-      webSearchSummary = `\n\n🌐 Live Web Knowledge (Wikipedia verified & stored to offline memory):\n` +
-        webSearchResults.slice(0, 2).join('\n\n');
+      return `I am operating smoothly and ready to assist! How are you doing today?`;
     }
   }
 
-  let personaClosing = '';
-  if (persona === 'strict-teacher') {
-    personaClosing = language === 'urdu' 
-      ? '\n\nیاد رکھیں: مسلسل مشق اور بنیادی اصولوں کو سمجھنا ہی حقیقی علم ہے۔ مزید سوال پوچھیں۔'
-      : '\n\nRemember: True mastery requires precision and rigorous practice. What is your next question?';
-  } else if (persona === 'empathetic-friend') {
-    personaClosing = language === 'urdu'
-      ? '\n\nمیں ہمیشہ آپ کے ساتھ ہوں۔ اگر کوئی اور پریشانی یا بات ہو تو بلا جھجھک بتائیں۔'
-      : '\n\nI am always here beside you. Never hesitate to share what is on your mind!';
-  } else {
-    personaClosing = language === 'urdu'
-      ? '\n\nیہ تجزیہ مکمل ہے۔ اگلا عملی اقدام بتائیے۔'
-      : '\n\nStrategic overview completed. Let me know if you would like to delve deeper.';
+  // 4. Name Question ("What is my name?" / "Mera naam kya hai?")
+  if (isNameQuestion) {
+    const nameMemory = relevantMemories.find((m) =>
+      m.text.toLowerCase().includes('name is') ||
+      m.text.toLowerCase().includes('naam') ||
+      m.text.toLowerCase().includes('نام')
+    );
+    if (nameMemory) {
+      if (language === 'urdu') {
+        return `میرے میموری والٹ کے مطابق:\n${nameMemory.text}`;
+      } else {
+        return `Based on your Memory Vault records:\n${nameMemory.text}`;
+      }
+    }
   }
 
-  return `${greetings[language]}
-${memoryRecall ? memoryRecall : ''}
-${webSearchSummary ? webSearchSummary : ''}
-${!memoryRecall && !webSearchSummary ? `I have processed your query: "${prompt}". My neural knowledge vault is active, persistent in your browser's IndexedDB, and ready to ingest documents, web data, or voice inputs.` : ''}
-${personaClosing}`;
+  // 5. Synthesis with Web Search Results (Autonomous Learning)
+  if (webSearchResults && webSearchResults.length > 0) {
+    const rawFacts = webSearchResults.slice(0, 3).join('\n\n');
+    if (language === 'urdu') {
+      return `🌐 **وکی پیڈیا سے تصدیق شدہ معلومات حاصل کر کے آف لائن میموری میں محفوظ کر دی گئی ہیں:**\n\n${rawFacts}\n\n✅ **آف لائن ٹریننگ مکمل:** اب اگلی بار آپ یہ سوال انٹرنیٹ کے بغیر بھی پوچھیں گے تو میں اپنے محفوظ کردہ میموری والٹ سے فورا جواب دوں گا!`;
+    } else if (language === 'roman-urdu') {
+      return `🌐 **Wikipedia se live maloomat hasil kar ke offline memory mein store kar di gayi hain:**\n\n${rawFacts}\n\n✅ **Offline Trained:** Ab next time aap internet ke baghair bhi yeh sawal poochein ge to main foran apne Memory Vault se jawab doon ga!`;
+    } else {
+      return `🌐 **Online Findings Verified & Memorized into Offline Vault:**\n\n${rawFacts}\n\n✅ **Permanent Offline Ingestion:** This knowledge has been embedded and saved to your IndexedDB vault, ready for offline recall next time!`;
+    }
+  }
+
+  // 6. Synthesis with Relevant RAG Memories
+  // Filter out any self-referencing repetitive prompt dumps
+  const cleanMemories = relevantMemories.filter((m) => {
+    const txt = m.text.toLowerCase();
+    return !txt.startsWith('user query:') && !txt.includes('my neural knowledge vault is active');
+  });
+
+  if (cleanMemories.length > 0) {
+    const topMem = cleanMemories[0];
+    const otherMems = cleanMemories.slice(1);
+
+    if (language === 'urdu') {
+      return `📌 **آپ کے میموری والٹ سے حاصل کردہ معلومات:**\n\n${topMem.text}\n\n${
+        otherMems.length > 0 ? otherMems.map((m, i) => `${i + 2}. ${m.text}`).join('\n\n') : ''
+      }`;
+    } else if (language === 'roman-urdu') {
+      return `📌 **Aapke Memory Vault se mili hui maloomat:**\n\n${topMem.text}\n\n${
+        otherMems.length > 0 ? otherMems.map((m, i) => `${i + 2}. ${m.text}`).join('\n\n') : ''
+      }`;
+    } else {
+      return `📌 **Retrieved from your Personal Memory Vault:**\n\n${topMem.text}\n\n${
+        otherMems.length > 0 ? otherMems.map((m, i) => `• ${m.text}`).join('\n\n') : ''
+      }`;
+    }
+  }
+
+  // 7. General Knowledgeable Response
+  if (language === 'urdu') {
+    return `آپ کا سوال موصول ہوا: "${prompt}"۔\n\nفی الوقت اس سوال کا جواب میموری والٹ میں موجود نہیں تھا۔ اگر آپ آن لائن ہیں تو سرچ بار کے ساتھ موجود 🌐 گلوب بٹن دبا کر وکی پیڈیا سے لائیو معلومات لا کر ہمیشہ کے لیے آف لائن محفوظ کر سکتے ہیں!`;
+  } else if (language === 'roman-urdu') {
+    return `Aapka sawal mila: "${prompt}"۔\n\nAbhi yeh baat memory vault mein nahi mili. Agar aap online hain to input bar mein 🌐 Globe button on kar ke Wikipedia se live knowledge hasil kar ke hamesha ke liye offline save kar sakte hain!`;
+  } else {
+    return `I received your question: "${prompt}".\n\nI don't have this recorded in your local memory vault yet. Toggle the 🌐 Web icon in the bottom input bar to automatically fetch from Wikipedia and permanently store it offline!`;
+  }
 }

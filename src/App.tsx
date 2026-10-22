@@ -38,6 +38,7 @@ import {
   searchWikipedia,
   saveAcquiredWebKnowledge,
 } from './services/agentSearch';
+import { seedInitialKnowledgeIfEmpty } from './services/seedKnowledge';
 import { ingestPDF } from './services/pdfIngestion';
 import { speakText, stopSpeaking, isSpeaking } from './services/speech';
 
@@ -95,6 +96,7 @@ export default function App() {
     // Load IndexedDB Memories and Chats
     const loadData = async () => {
       try {
+        await seedInitialKnowledgeIfEmpty();
         const storedMemories = await getAllMemories();
         setMemories(storedMemories);
 
@@ -176,18 +178,31 @@ export default function App() {
     try {
       // 2. Vector RAG: Embed user query and retrieve top 3 relevant memories
       const queryEmbedding = await getEmbedding(text);
-      const relevantMemories = searchTopMemories(queryEmbedding, memories, 3);
+      const relevantMemories = searchTopMemories(queryEmbedding, memories, 3, 0.20);
 
-      // Save user question into memories vault as conversation history
-      const userMemoryItem: MemoryItem = {
-        id: `conv_${Date.now()}_u`,
-        text: `User query: "${text}"`,
-        embedding: queryEmbedding,
-        source: 'conversation',
-        timestamp: Date.now(),
-      };
-      await saveMemory(userMemoryItem);
-      setMemories((prev) => [userMemoryItem, ...prev]);
+      // Check if user is declaring an explicit personal fact to remember
+      const cleanLower = text.toLowerCase().trim();
+      const isExplicitFact =
+        cleanLower.includes('remember') ||
+        cleanLower.includes('yaad') ||
+        cleanLower.includes('my name') ||
+        cleanLower.includes('mera naam') ||
+        cleanLower.includes('i live in') ||
+        cleanLower.includes('main rehta') ||
+        cleanLower.includes('mera project');
+
+      if (isExplicitFact) {
+        const userFactItem: MemoryItem = {
+          id: `fact_${Date.now()}_u`,
+          text: `[Personal Fact]: ${text}`,
+          embedding: queryEmbedding,
+          source: 'manual',
+          timestamp: Date.now(),
+          metadata: { tags: ['user-personal-fact'] },
+        };
+        await saveMemory(userFactItem);
+        setMemories((prev) => [userFactItem, ...prev]);
+      }
 
       // 3. Prepare Assistant Placeholder Message
       const assistantMsgId = `msg_ai_${Date.now()}`;
@@ -201,8 +216,40 @@ export default function App() {
 
       setMessages([...updatedMessages, assistantMessage]);
 
-      // Check if user explicitly toggled Web Search
-      if (forceWebSearch) {
+      // Detect if prompt is a greeting (Salam, Hello, How are you)
+      const isGreeting =
+        cleanLower.includes('salam') ||
+        cleanLower.includes('سلام') ||
+        cleanLower.includes('hello') ||
+        cleanLower.includes('hi ') ||
+        cleanLower === 'hi' ||
+        cleanLower.includes('kaise') ||
+        cleanLower.includes('kese') ||
+        cleanLower.includes('haal') ||
+        cleanLower.includes('who are you') ||
+        cleanLower.includes('who made') ||
+        cleanLower.includes('kon ho');
+
+      // Detect if we should search online:
+      // Search if forceWebSearch OR (not a simple greeting AND we are online AND memory has low confidence or user asks a factual question)
+      const shouldSearchOnline =
+        navigator.onLine &&
+        (forceWebSearch ||
+          (!isGreeting &&
+            (relevantMemories.length === 0 ||
+              (relevantMemories[0]?.metadata?.similarity || 0) < 0.28 ||
+              cleanLower.includes('who is') ||
+              cleanLower.includes('what is') ||
+              cleanLower.includes('tell me') ||
+              cleanLower.includes('search') ||
+              cleanLower.includes('wikipedia') ||
+              cleanLower.includes('history') ||
+              cleanLower.includes('kon hai') ||
+              cleanLower.includes('kya hai') ||
+              cleanLower.includes('batao'))));
+
+      if (shouldSearchOnline) {
+        // Autonomous Online Research
         assistantMessage.isSearchingWeb = true;
         assistantMessage.searchQuery = text;
         setMessages([...updatedMessages, assistantMessage]);
@@ -212,7 +259,7 @@ export default function App() {
           assistantMessage.searchResults = wikiData.snippets;
           assistantMessage.isSearchingWeb = false;
 
-          // CRITICAL REQUIREMENT: Save new knowledge into IndexedDB memory
+          // CRITICAL: Save this new knowledge (query + summary) into IndexedDB so it's trained for offline!
           const newKnowledge = await saveAcquiredWebKnowledge(
             text,
             wikiData.combinedSummary,
@@ -220,14 +267,13 @@ export default function App() {
           );
           setMemories((prev) => [newKnowledge, ...prev]);
 
-          // Synthesize response with acquired knowledge
           if (isModelReady && isEngineLoaded()) {
             const systemPrompt = buildSystemPrompt(persona, language, [
               ...relevantMemories,
               newKnowledge,
             ]);
             const finalReply = await generateAIResponse(
-              `Summarize and answer the user query based on acquired Wikipedia findings:\n${wikiData.combinedSummary}\nUser question: "${text}"`,
+              `Based on Wikipedia research:\n${wikiData.combinedSummary}\n\nUser Question: "${text}"\nPlease give a thorough, natural answer in ${language}.`,
               systemPrompt,
               messages.map((m) => ({ role: m.role, content: m.content })),
               (chunk, full) => {
@@ -247,8 +293,12 @@ export default function App() {
           }
         } catch (searchErr: any) {
           assistantMessage.isSearchingWeb = false;
-          assistantMessage.content = `[Search Offline Notice]: Could not reach live Wikipedia (${searchErr.message}). Answering from local IndexedDB knowledge vault.\n\n` +
-            generateLocalFallbackResponse(text, persona, language, relevantMemories);
+          assistantMessage.content = generateLocalFallbackResponse(
+            text,
+            persona,
+            language,
+            relevantMemories
+          );
         }
       } else if (isModelReady && isEngineLoaded()) {
         // WebLLM Inference Path
@@ -266,10 +316,8 @@ export default function App() {
           }
         );
 
-        // 4. Autonomous Agent Search Check:
-        // Intercept {"action": "search", "query": "..."}
+        // Check if agent requested search
         const searchIntentQuery = detectSearchIntent(rawReply);
-
         if (searchIntentQuery) {
           assistantMessage.isSearchingWeb = true;
           assistantMessage.searchQuery = searchIntentQuery;
@@ -280,7 +328,6 @@ export default function App() {
             assistantMessage.searchResults = wikiData.snippets;
             assistantMessage.isSearchingWeb = false;
 
-            // CRITICAL: Save this new knowledge (query + summary) into IndexedDB
             const newMem = await saveAcquiredWebKnowledge(
               searchIntentQuery,
               wikiData.combinedSummary,
@@ -288,8 +335,7 @@ export default function App() {
             );
             setMemories((prev) => [newMem, ...prev]);
 
-            // Re-prompt the AI with the newly acquired facts to answer user
-            const followUpPrompt = `Here is the verified Wikipedia research for "${searchIntentQuery}":\n${wikiData.combinedSummary}\n\nNow synthesize a complete, professional answer in the requested language for the user.`;
+            const followUpPrompt = `Wikipedia research for "${searchIntentQuery}":\n${wikiData.combinedSummary}\n\nNow synthesize a complete, professional answer in ${language} for the user.`;
             const synthesizedAnswer = await generateAIResponse(
               followUpPrompt,
               systemPrompt,
@@ -302,70 +348,30 @@ export default function App() {
             assistantMessage.content = synthesizedAnswer;
           } catch (agentErr: any) {
             assistantMessage.isSearchingWeb = false;
-            assistantMessage.content = `I attempted an autonomous web search for "${searchIntentQuery}", but network is currently offline. Here is my offline analysis:\n\n` +
-              generateLocalFallbackResponse(text, persona, language, relevantMemories);
+            assistantMessage.content = generateLocalFallbackResponse(
+              text,
+              persona,
+              language,
+              relevantMemories
+            );
           }
         } else {
           assistantMessage.content = rawReply;
         }
       } else {
-        // Fast Instant Offline Engine (WebGPU fallback or user choice)
-        // Detect if user asked something that clearly benefits from a search
-        const isSearchKeyword =
-          text.toLowerCase().includes('search') ||
-          text.toLowerCase().includes('wikipedia') ||
-          text.toLowerCase().includes('latest') ||
-          text.toLowerCase().includes('who is') ||
-          text.toLowerCase().includes('what is');
-
-        let webSnippets: string[] | undefined;
-        if (isSearchKeyword && navigator.onLine) {
-          try {
-            assistantMessage.isSearchingWeb = true;
-            assistantMessage.searchQuery = text;
-            setMessages([...updatedMessages, { ...assistantMessage }]);
-
-            const wikiData = await searchWikipedia(text);
-            assistantMessage.isSearchingWeb = false;
-            webSnippets = wikiData.snippets;
-
-            // Save to offline IndexedDB
-            const savedFact = await saveAcquiredWebKnowledge(
-              text,
-              wikiData.combinedSummary,
-              wikiData.titles
-            );
-            setMemories((prev) => [savedFact, ...prev]);
-          } catch (e) {
-            assistantMessage.isSearchingWeb = false;
-          }
-        }
-
+        // Fast Instant Offline Engine (WebGPU fallback)
         const reply = generateLocalFallbackResponse(
           text,
           persona,
           language,
-          relevantMemories,
-          webSnippets
+          relevantMemories
         );
         assistantMessage.content = reply;
       }
 
-      // Save Assistant Message to Chats
+      // Save Assistant Message to Chats (NOT polluting memory vault)
       setMessages([...updatedMessages, assistantMessage]);
       await saveChatMessage(assistantMessage);
-
-      // Embed AI response into long term memories too
-      const aiEmbedding = await getEmbedding(assistantMessage.content);
-      const aiMemoryItem: MemoryItem = {
-        id: `conv_${Date.now()}_a`,
-        text: `AI response: "${assistantMessage.content.slice(0, 400)}"`,
-        embedding: aiEmbedding,
-        source: 'conversation',
-        timestamp: Date.now(),
-      };
-      await saveMemory(aiMemoryItem);
-      setMemories((prev) => [aiMemoryItem, ...prev]);
 
       // TTS Read-Aloud
       if (ttsEnabled) {
